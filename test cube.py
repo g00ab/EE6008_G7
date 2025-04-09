@@ -12,6 +12,8 @@ color_map = {
     'B': '[b]',  # Blue (Back)
     'L': '[o]',  # Red (Left)
 }
+
+# Testing purpose
 reverse_color_map = {
     'y': 'D',  # Yellow (Up)
     'g': 'F',  # Green (Front)
@@ -30,6 +32,7 @@ def solving_cube(layout):
     except Exception as e:
         print("Error:", e)
 
+
 def cube_stickers(layout_str):
     # Convert the string to a list of colors using the color map
     layout = [color_map[ch] for ch in layout_str]
@@ -38,13 +41,14 @@ def cube_stickers(layout_str):
     'U': layout[0:3*9],  # Up
     'R': layout[3*9:3*18],  # Right
     'F': layout[3*18:3*27],  # Front
-    'D': layout[3*27:3*36],  # Left
-    'L': layout[3*36:3*45],  # Back
-    'B': layout[3*45:3*54]   # Down
+    'L': layout[3*27:3*36],  # Left
+    'B': layout[3*36:3*45],  # Back
+    'D': layout[3*45:3*54]   # Down
 }
     print("Converted layout:", cube_faces)
     return cube_faces
 
+# Print the cube layout in a readable format
 def cube_layout(layout_str):
     cube_str=cube_stickers(layout_str)
     print(cube_str['D'])
@@ -62,16 +66,17 @@ def cube_layout(layout_str):
 
     for j in range (0, num_layers):
         for i in range(0, side_size, 9*4):
-            str_output += cube_str['R'][side_size*j:side_size*j+side_size] + cube_str['F'][side_size*j:side_size*j+side_size] + cube_str['D'][side_size*j:side_size*j+side_size] + cube_str['L'][side_size*j:side_size*j+side_size] + '\n'
+            str_output += cube_str['R'][side_size*j:side_size*j+side_size] + cube_str['F'][side_size*j:side_size*j+side_size] + cube_str['L'][side_size*j:side_size*j+side_size] + cube_str['B'][side_size*j:side_size*j+side_size] + '\n'
 
     for j in range (0, num_layers):
         for i in range(0, side_size):
             str_output += ' '
         for i in range(0, side_size, 9):
-            str_output += cube_str['B'][side_size*j:side_size*j+side_size] + '\n'
+            str_output += cube_str['D'][side_size*j:side_size*j+side_size] + '\n'
 
     return str_output
 
+# Testing purpose
 def reverse_cube_layout(cube_faces):
     # Initialize the layout string
     layout = ''
@@ -89,12 +94,12 @@ def reverse_cube_layout(cube_faces):
     for j in range(3):
             string2return += layout[j*12+9+3:j*12+6+9] # F
     print('string2return:', string2return)
-    string2return += layout[45:54] # D
+    # string2return += layout[45:54] # D
     for j in range(3):
         string2return += layout[j*12+9+6:j*12+9+9] # L
     for j in range(3):
         string2return += layout[j*12+9+9:j*12+12+9] # B
-    # string2return += layout[45:54] # D
+    string2return += layout[45:54] # D
     print('string2return:', string2return)
 
     string2return = [reverse_color_map[ch] for ch in string2return]
@@ -112,7 +117,8 @@ def main():
     cube("z")
 
     # print(cube)
-    cube("D2 R' D' F2 B D R2 D2 R' F2 D' F2 U' B2 L2 U2 D R2 U")
+    # cube("D2 R' D' F2 B D R2 D2 R' F2 D' F2 U' B2 L2 U2 D R2 U")
+    cube("U R U2 F2 D2 F D' R2 L D F' R' D' B2 R2 D F2 U2 L2 D")
     # solution = solver.solve()
     # print("Solution:", solution)
 
@@ -133,10 +139,12 @@ def main():
 
     # Print the scrambled cube
     try:
-        solution = sv.solve(layout_str,19,2)
+        solution = sv.solve("FDLUUURLFLBDFRRDLBBBUBFLDDLFBBUDUBRLURDFLRUFRFLRFBDUDR",19,2)
         print("Solution:", solution)
     except Exception as e:
         print("Error:", e)
+
+    solving_cube(layout_str)
 
 if __name__ == "__main__":
     main()
