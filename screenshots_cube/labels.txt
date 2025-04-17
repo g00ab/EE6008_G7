@@ -1,6 +1,7 @@
 blue
+cube
 green
+orange
 red
 white
 yellow
-orange
