@@ -72,37 +72,33 @@ def classify_color(stats):
     a = stats.a_mean()
     b = stats.b_mean()
 
-    # You may need to tweak these thresholds for your lighting conditions and cube
-    if l > 80 and abs(a) < 10 and abs(b) < 10:
+    if l > 92 and abs(a) < 15 and abs(b) < 15:
         return "white"
-    elif a > 30 and b < 30:
+    elif a > 35 and b > 25:
         return "red"
-    elif b > 40 and a < 10:
-        return "yellow"
-    elif b < -20 and a < 10:
-        return "blue"
-    elif a > 20 and b > 20:
+    elif 10 < a <= 35 and 35 < b < 55:
         return "orange"
-    elif a < -10 and b > 20:
+    elif -25 < a < 5 and b > 50:
+        return "yellow"
+    elif a < -35 and 0 < b < 30:
         return "green"
+    elif a < 10 and b < -25:
+        return "blue"
     else:
         return "?"
 
-
 faces_done = []
 
-# Take 6 pictures
 while len(faces_done) < 6:
-    print("📸 Ready to detect a new face...")
+    print("\U0001F4F8 Ready to detect a new face...")
     time.sleep(2)
 
     img = sensor.snapshot()
     all_centers = []
     all_boxes = []
 
-    # Run FOMO detection
     for class_idx, detection_list in enumerate(net.predict([img], callback=fomo_post_process)):
-        if class_idx == 0: continue  # background
+        if class_idx == 0: continue
         for x, y, w, h, score in detection_list:
             cx = math.floor(x + w / 2)
             cy = math.floor(y + h / 2)
@@ -116,7 +112,7 @@ while len(faces_done) < 6:
 
         center_color = None
 
-        print("🔎 LAB values and color classification:")
+        print("\U0001F50E LAB values and color classification:")
         for label, (cx, cy) in pos_map.items():
             for (x, y, w, h, class_id) in all_boxes:
                 if abs((x + w // 2) - cx) < 5 and abs((y + h // 2) - cy) < 5:
@@ -128,7 +124,10 @@ while len(faces_done) < 6:
                     color_label = classify_color(stats)
 
                     if label == "center":
-                        center_color = color_label
+                        if len(faces_done) == 0:
+                            center_color = "white"
+                        else:
+                            center_color = color_label
 
                     img.draw_string(cx, cy, "{}:{}".format(label, color_label), color=(255, 255, 255), scale=1)
 
@@ -140,10 +139,10 @@ while len(faces_done) < 6:
         if center_color is not None:
             if center_color in faces_done:
                 print("⚠️ Face with center color '{}' already captured. Rotate to a new face.".format(center_color))
-                continue  # Skip this capture and wait for new face
+                continue
             else:
                 faces_done.append(center_color)
-                filename = "side_{}.jpg".format(len(faces_done))
+                filename = "side_{}.jpg".format(len(faces_done))  # Save to SD card or valid path
                 img.save(filename)
                 print("✅ Captured and saved {} with center color '{}'".format(filename, center_color))
 
