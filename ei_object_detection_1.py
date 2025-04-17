@@ -71,28 +71,31 @@ def classify_color(stats):
     l = stats.l_mean()
     a = stats.a_mean()
     b = stats.b_mean()
-    print("LAB values: L={}, A={}, B={}".format(l, a, b))
 
-    if l > 180 and a < 128 and b < 128:
+    # You may need to tweak these thresholds for your lighting conditions and cube
+    if l > 80 and abs(a) < 10 and abs(b) < 10:
         return "white"
-    elif a > 150 and b < 140:
+    elif a > 30 and b < 30:
         return "red"
-    elif a < 130 and b > 160:
+    elif b > 40 and a < 10:
         return "yellow"
-    elif a < 120 and b < 100:
+    elif b < -20 and a < 10:
         return "blue"
-    elif a > 160 and b > 160:
+    elif a > 20 and b > 20:
         return "orange"
-    elif a < 110 and b < 90 and l < 100:
+    elif a < -10 and b > 20:
         return "green"
     else:
         return "?"
 
-prev_center_color = None
-side_num = 1
 
-while side_num <= 6:
-    print("📸 Ready for side", side_num)
+faces_done = []
+
+# Take 6 pictures
+while len(faces_done) < 6:
+    print("📸 Ready to detect a new face...")
+    time.sleep(2)
+
     img = sensor.snapshot()
     all_centers = []
     all_boxes = []
@@ -109,37 +112,39 @@ while side_num <= 6:
 
     if len(all_centers) == 9:
         pos_map = assign_positions(all_centers)
-        center_pt = pos_map.get("center", None)
+        center_coords = pos_map["center"]
 
-        # Find the center square's color
-        for (x, y, w, h, class_id) in all_boxes:
-            if abs((x + w // 2) - center_pt[0]) < 5 and abs((y + h // 2) - center_pt[1]) < 5:
-                stats = img.get_statistics(roi=(x, y, w, h))
-                center_color = classify_color(stats)
+        center_color = None
 
-                if center_color == prev_center_color:
-                    print("⚠️ Same center color detected: {}. Waiting for a new face...".format(center_color))
-                    break  # Wait for new face
-                prev_center_color = center_color
+        print("🔎 LAB values and color classification:")
+        for label, (cx, cy) in pos_map.items():
+            for (x, y, w, h, class_id) in all_boxes:
+                if abs((x + w // 2) - cx) < 5 and abs((y + h // 2) - cy) < 5:
+                    roi = (x, y, w, h)
+                    stats = img.get_statistics(roi=roi)
+                    l = stats.l_mean()
+                    a = stats.a_mean()
+                    b = stats.b_mean()
+                    color_label = classify_color(stats)
 
-                # Annotate colors and labels
-                for label, (cx, cy) in pos_map.items():
-                    for (x2, y2, w2, h2, class_id2) in all_boxes:
-                        if abs((x2 + w2 // 2) - cx) < 5 and abs((y2 + h2 // 2) - cy) < 5:
-                            roi = (x2, y2, w2, h2)
-                            stats = img.get_statistics(roi=roi)
-                            color_label = classify_color(stats)
-                            img.draw_string(cx, cy, "{}:{}".format(label, color_label), color=(255, 255, 255), scale=1)
-                            print("Side {} - {} = {}".format(side_num, label, color_label))
-                            break
+                    if label == "center":
+                        center_color = color_label
 
-                filename = "side_{}.jpg".format(side_num)
+                    img.draw_string(cx, cy, "{}:{}".format(label, color_label), color=(255, 255, 255), scale=1)
+
+                    print("{} @({}, {}) = L:{:.1f}, A:{:.1f}, B:{:.1f} → {}".format(
+                        label, cx, cy, l, a, b, color_label
+                    ))
+                    break
+
+        if center_color is not None:
+            if center_color in faces_done:
+                print("⚠️ Face with center color '{}' already captured. Rotate to a new face.".format(center_color))
+                continue  # Skip this capture and wait for new face
+            else:
+                faces_done.append(center_color)
+                filename = "side_{}.jpg".format(len(faces_done))
                 img.save(filename)
-                print("✅ Saved", filename)
-                print("🌀 Rotate the cube to the next side...\n")
-                side_num += 1
-                break
-    else:
-        print("❌ Detected only", len(all_centers), "squares. Waiting...")
-    
-    time.sleep_ms(500)  # Slow down polling a bit
+                print("✅ Captured and saved {} with center color '{}'".format(filename, center_color))
+
+print("🎉 Done capturing all 6 sides!")
