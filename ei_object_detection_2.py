@@ -6,19 +6,33 @@ sensor.set_framesize(sensor.QVGA)
 sensor.set_windowing((240, 240))
 sensor.skip_frames(time=2000)
 
-net = None
-labels = None
+# Load square detection model (FOMO)
+net_square = None
+square_labels = None
+try:
+    net_square = ml.Model("fomo.tflite", load_to_fb=uos.stat('fomo.tflite')[6] > (gc.mem_free() - (64*1024)))
+except Exception as e:
+    raise Exception('Failed to load "fomo.tflite": ' + str(e))
+
+try:
+    square_labels = [line.rstrip('\n') for line in open("fomo_labels.txt")]
+except Exception as e:
+    raise Exception('Failed to load "fomo_labels.txt": ' + str(e))
+
+# Load color recognition model
+net_color = None
+color_labels = None
+try:
+    net_color = ml.Model("color_trained.tflite", load_to_fb=uos.stat('color_trained.tflite')[6] > (gc.mem_free() - (64*1024)))
+except Exception as e:
+    raise Exception('Failed to load "color_trained.tflite": ' + str(e))
+
+try:
+    color_labels = [line.rstrip('\n') for line in open("color_labels.txt")]
+except Exception as e:
+    raise Exception('Failed to load "color_labels.txt": ' + str(e))
+
 min_confidence = 0.5
-
-try:
-    net = ml.Model("trained.tflite", load_to_fb=uos.stat('trained.tflite')[6] > (gc.mem_free() - (64*1024)))
-except Exception as e:
-    raise Exception('Failed to load "trained.tflite": ' + str(e))
-
-try:
-    labels = [line.rstrip('\n') for line in open("labels.txt")]
-except Exception as e:
-    raise Exception('Failed to load "labels.txt": ' + str(e))
 
 colors = [
     (255, 0, 0), (0, 255, 0), (255, 255, 0),
@@ -67,47 +81,18 @@ def assign_positions(centers):
             idx += 1
     return pos_map
 
-def classify_color(stats):
-    l = stats.l_mean()
-    a = stats.a_mean()
-    b = stats.b_mean()
-
-    if l > 88 and abs(a) < 15 and abs(b) < 15:
-        return "white"
-
-    elif a > 35 and b > 25:
-        return "red"
-
-    elif 15 < a <= 40 and 30 < b <= 60:
-        return "orange"
-
-    elif -20 < a < 10 and b > 45:
-        return "yellow"
-
-    elif a < -30 and -10 < b < 30:
-        return "green"
-
-    elif a < 15 and b < -20:
-        return "blue"
-
-    else:
-        return "?"
-
-
 faces_done = []
 
-# Take 6 pictures
 while len(faces_done) < 6:
-    print("📸 Ready to detect a new face...")
+    print("\U0001F4F8 Ready to detect a new face...")
     time.sleep(2)
 
     img = sensor.snapshot()
     all_centers = []
     all_boxes = []
 
-    # Run FOMO detection
-    for class_idx, detection_list in enumerate(net.predict([img], callback=fomo_post_process)):
-        if class_idx == 0: continue  # background
+    for class_idx, detection_list in enumerate(net_square.predict([img], callback=fomo_post_process)):
+        if class_idx == 0: continue  # Usually background class
         for x, y, w, h, score in detection_list:
             cx = math.floor(x + w / 2)
             cy = math.floor(y + h / 2)
@@ -118,33 +103,38 @@ while len(faces_done) < 6:
     if len(all_centers) == 9:
         pos_map = assign_positions(all_centers)
         center_coords = pos_map["center"]
-
         center_color = None
 
-        print("🔎 LAB values and color classification:")
+        print("\U0001F50E CNN Color classification:")
         for label, (cx, cy) in pos_map.items():
             for (x, y, w, h, class_id) in all_boxes:
                 if abs((x + w // 2) - cx) < 5 and abs((y + h // 2) - cy) < 5:
                     roi = (x, y, w, h)
-                    stats = img.get_statistics(roi=roi)
-                    l = stats.l_mean()
-                    a = stats.a_mean()
-                    b = stats.b_mean()
-                    color_label = classify_color(stats)
+                    cropped = img.copy(roi=roi) #.resize(32, 32)
+
+                    predictions = net_color.predict([cropped])[0].flatten().tolist()
+                    pred_label = color_labels[predictions.index(max(predictions))] if predictions else "?"
+                    confidence = max(predictions)
+
+                    if confidence < min_confidence:
+                        pred_label = "?"
 
                     if label == "center":
-                        center_color = color_label
+                        if len(faces_done) == 0:
+                            center_color = "white"
+                        else:
+                            center_color = pred_label
 
-                    img.draw_string(cx, cy, "{}:{}".format(label, color_label), color=(255, 255, 255), scale=1)
-
-                    print("{} @({}, {}) = L:{:.1f}, A:{:.1f}, B:{:.1f} → {}".format(
-                        label, cx, cy, l, a, b, color_label
-                    ))
+                    img.draw_string(cx, cy, "{}:{}".format(label, pred_label), color=(255, 255, 255), scale=1)
+                    print("{} @({}, {}) → {} ({:.2f})".format(label, cx, cy, pred_label, confidence))
                     break
 
         if center_color is not None:
             if center_color in faces_done:
                 print("⚠️ Face with center color '{}' already captured. Rotate to a new face.".format(center_color))
+                continue
+            elif center_color == "?":
+                print("⚠️ Unrecognized color at center. Please try again.")
                 continue
             else:
                 faces_done.append(center_color)
