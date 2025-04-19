@@ -6,7 +6,28 @@ sensor.set_framesize(sensor.QVGA)
 sensor.set_windowing((240, 240))
 sensor.skip_frames(time=2000)
 
-# Load square detection model (FOMO)
+# --- LAB Color Classification Function ---
+def classify_color(stats):
+    l = stats.l_mean()
+    a = stats.a_mean()
+    b = stats.b_mean()
+
+    if l > 94 and abs(a) < 15 and abs(b) < 15:
+        return "white"
+    elif a > 40 and b > 25:
+        return "red"
+    elif 0 < a <= 38 and 30 < b <= 70:
+        return "orange"
+    elif -28 < a < 0 and b > 40:
+        return "yellow"
+    elif a < -33 and -10 < b < 35:
+        return "green"
+    elif a < 15 and b < -25:
+        return "blue"
+    else:
+        return "?"
+
+# --- Load square detection model (FOMO) ---
 net_square = None
 square_labels = None
 try:
@@ -19,7 +40,7 @@ try:
 except Exception as e:
     raise Exception('Failed to load "fomo_labels.txt": ' + str(e))
 
-# Load color recognition model
+# --- Load color recognition model ---
 net_color = None
 color_labels = None
 try:
@@ -45,6 +66,8 @@ position_names = [
     "middle_left", "center", "middle_right",
     "bottom_left_corner", "middle_bottom", "bottom_right_corner"
 ]
+
+
 
 threshold_list = [(math.ceil(min_confidence * 255), 255)]
 
@@ -92,7 +115,7 @@ while len(faces_done) < 6:
     all_boxes = []
 
     for class_idx, detection_list in enumerate(net_square.predict([img], callback=fomo_post_process)):
-        if class_idx == 0: continue  # Usually background class
+        if class_idx == 0: continue
         for x, y, w, h, score in detection_list:
             cx = math.floor(x + w / 2)
             cy = math.floor(y + h / 2)
@@ -105,19 +128,26 @@ while len(faces_done) < 6:
         center_coords = pos_map["center"]
         center_color = None
 
-        print("\U0001F50E CNN Color classification:")
+        print("\U0001F50E LAB → CNN Color classification:")
         for label, (cx, cy) in pos_map.items():
             for (x, y, w, h, class_id) in all_boxes:
                 if abs((x + w // 2) - cx) < 5 and abs((y + h // 2) - cy) < 5:
                     roi = (x, y, w, h)
-                    cropped = img.copy(roi=roi) #.resize(32, 32)
+                    stats = img.get_statistics(roi=roi)
+                    pred_label = classify_color(stats)
 
-                    predictions = net_color.predict([cropped])[0].flatten().tolist()
-                    pred_label = color_labels[predictions.index(max(predictions))] if predictions else "?"
-                    confidence = max(predictions)
-
-                    if confidence < min_confidence:
-                        pred_label = "?"
+                    # fallback to CNN if LAB failed
+                    if pred_label == "?":
+                        print("LAB failed, using CNN for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
+                        cropped = img.copy(roi=roi) #.resize(32, 32)
+                        predictions = net_color.predict([cropped])[0].flatten().tolist()
+                        pred_label = color_labels[predictions.index(max(predictions))] if predictions else "?"
+                        confidence = max(predictions)
+                        if confidence < min_confidence:
+                            pred_label = "?"
+                    else:
+                        print("LAB succeeded, for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
+                        confidence = 1.0  # Assume full confidence for LAB
 
                     if label == "center":
                         if len(faces_done) == 0:
