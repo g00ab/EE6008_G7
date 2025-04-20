@@ -1,4 +1,6 @@
 import sensor, image, time, ml, math, uos, gc
+from collections import OrderedDict
+import re
 
 sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
@@ -14,7 +16,7 @@ def classify_color(stats):
 
     if l > 94 and abs(a) < 15 and abs(b) < 15:
         return "white"
-    elif a > 40 and b > 25:
+    elif a > 35 and b > 20:
         return "red"
     elif 0 < a <= 38 and 30 < b <= 70:
         return "orange"
@@ -67,7 +69,14 @@ position_names = [
     "bottom_left_corner", "middle_bottom", "bottom_right_corner"
 ]
 
-
+color_map = {
+    'yellow': 'D',  # Yellow (Down)
+    'green': 'F',  # Green (Front)
+    'orange': 'L',  # Orange (Left)
+    'white': 'U',  # White (Up)
+    'blue': 'B',  # Blue (Back)
+    'red': 'R',  # Red (Right)
+}
 
 threshold_list = [(math.ceil(min_confidence * 255), 255)]
 
@@ -105,6 +114,8 @@ def assign_positions(centers):
     return pos_map
 
 faces_done = []
+cube_map = {}
+square_list = []
 
 while len(faces_done) < 6:
     print("\U0001F4F8 Ready to detect a new face...")
@@ -129,6 +140,7 @@ while len(faces_done) < 6:
         center_color = None
 
         print("\U0001F50E LAB → CNN Color classification:")
+        face_map = {}
         for label, (cx, cy) in pos_map.items():
             for (x, y, w, h, class_id) in all_boxes:
                 if abs((x + w // 2) - cx) < 5 and abs((y + h // 2) - cy) < 5:
@@ -136,15 +148,10 @@ while len(faces_done) < 6:
                     stats = img.get_statistics(roi=roi)
                     pred_label = classify_color(stats)
 
-                    # fallback to CNN if LAB failed
+                    # TODO: Implement a failsafe so that when a color is not recognized, it recaptures the image and tries again.
                     if pred_label == "?":
                         print("LAB failed, using CNN for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
-                        cropped = img.copy(roi=roi) #.resize(32, 32)
-                        predictions = net_color.predict([cropped])[0].flatten().tolist()
-                        pred_label = color_labels[predictions.index(max(predictions))] if predictions else "?"
-                        confidence = max(predictions)
-                        if confidence < min_confidence:
-                            pred_label = "?"
+
                     else:
                         print("LAB succeeded, for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
                         confidence = 1.0  # Assume full confidence for LAB
@@ -154,9 +161,9 @@ while len(faces_done) < 6:
                             center_color = "white"
                         else:
                             center_color = pred_label
-
                     img.draw_string(cx, cy, "{}:{}".format(label, pred_label), color=(255, 255, 255), scale=1)
                     print("{} @({}, {}) → {} ({:.2f})".format(label, cx, cy, pred_label, confidence))
+                    face_map[label] = pred_label
                     break
 
         if center_color is not None:
@@ -168,8 +175,47 @@ while len(faces_done) < 6:
                 continue
             else:
                 faces_done.append(center_color)
+                cube_map[center_color] = face_map.copy()
                 filename = "side_{}.jpg".format(len(faces_done))
                 img.save(filename)
                 print("✅ Captured and saved {} with center color '{}'".format(filename, center_color))
 
 print("🎉 Done capturing all 6 sides!")
+print("cube_map: ",cube_map)
+
+
+time.sleep(2)
+new_order = ['white', 'red', 'green', 'orange', 'blue', 'yellow']
+reordered_cube_map = OrderedDict()
+for color in new_order:
+    reordered_cube_map[color] = cube_map[color]
+
+print("reordered_cube_map: ",reordered_cube_map)
+
+time.sleep(2)
+string_cube = ""
+for color, face_map in reordered_cube_map.items():
+    print(string_cube)
+    string_cube += face_map['top_left_corner']
+    print(string_cube)
+    string_cube += face_map['middle_top']
+    print(string_cube)
+    string_cube += face_map['top_right_corner']
+    print(string_cube)
+    string_cube += face_map['middle_left']
+    print(string_cube)
+    string_cube += color
+    print(string_cube)
+    string_cube += face_map['middle_right']
+    print(string_cube)
+    string_cube += face_map['bottom_left_corner']
+    print(string_cube)
+    string_cube += face_map['middle_bottom']
+    print(string_cube)
+    string_cube += face_map['bottom_right_corner']
+
+time.sleep(2)
+pattern = '|'.join(color_map.keys())
+output_string = re.sub(pattern, lambda m: color_map[m.group(0)], string_cube)
+
+print("Cube string:", output_string)
