@@ -151,6 +151,7 @@ while len(faces_done) < 6:
                     # TODO: Implement a failsafe so that when a color is not recognized, it recaptures the image and tries again.
                     if pred_label == "?":
                         print("LAB failed, using CNN for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
+                        confidence = 0.0  # Assume full confidence for LAB
 
                     else:
                         print("LAB succeeded, for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
