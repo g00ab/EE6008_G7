@@ -14,9 +14,9 @@ def classify_color(stats):
     a = stats.a_mean()
     b = stats.b_mean()
 
-    if l > 94 and abs(a) < 15 and abs(b) < 15:
+    if l > 94 : # and abs(a) < 15 and abs(b) < 15:
         return "white"
-    elif a > 35 and b > 20:
+    elif a > 38 and b > 39:
         return "red"
     elif 0 < a <= 38 and 30 < b <= 70:
         return "orange"
@@ -173,9 +173,11 @@ while face_idx < max_faces:
                             center_color = pred_label
 
                     if pred_label == "?" or pred_label == "":
+                        print("LAB Failed, for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
                         print("XXXX Skipping {}, uncertain color.".format(label))
                         continue
 
+                    print("LAB: ",stats.l_mean(), stats.a_mean(), stats.b_mean())
                     face_map[label] = pred_label
                     img.draw_string(cx, cy, "{}:{}".format(label, pred_label), color=(255, 255, 255), scale=1)
                     print("✅ Updated {} as {}".format(label, pred_label))
@@ -199,7 +201,7 @@ while face_idx < max_faces:
 print("✅ All 6 sides scanned.")
 time.sleep(1)
 
-new_order = ['white', 'red', 'green', 'orange', 'blue', 'yellow']
+new_order = ['white', 'red', 'green', 'yellow', 'orange', 'blue']
 reordered_cube_map = OrderedDict()
 for color in new_order:
     reordered_cube_map[color] = cube_map[color]
