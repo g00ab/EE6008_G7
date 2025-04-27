@@ -16,9 +16,9 @@ def classify_color(stats):
 
     if l > 94 : # and abs(a) < 15 and abs(b) < 15:
         return "white"
-    elif a > 38 and b > 39:
+    elif a >= 30 and b > 30:
         return "red"
-    elif 0 < a <= 38 and 30 < b <= 70:
+    elif 0 < a <= 29 and 30 < b <= 70:
         return "orange"
     elif -28 < a < 0 and b > 40:
         return "yellow"
@@ -64,6 +64,15 @@ color_map = {
     'blue': 'B',  # Blue (Back)
     'red': 'R',  # Red (Right)
 }
+color_map_drawing = {
+    'D': '[y]',  # Yellow (Down)
+    'F': '[g]',  # Green (Front)
+    'L': '[o]',  # Orange (Left)
+    'U': '[w]',  # White (Up)
+    'B': '[b]',  # Blue (Back)
+    'R': '[r]',  # Red (Right)
+}
+
 
 threshold_list = [(math.ceil(min_confidence * 255), 255)]
 
@@ -116,6 +125,47 @@ def print_face_3x3(pos_map):
     for k in position_names:
         print(f"{k:>18}: {pos_map[k]}")
 
+def cube_stickers(layout_str):
+    # Convert the string to a list of colors using the color map
+    layout = [color_map_drawing[ch] for ch in layout_str]
+    layout = ''.join(layout)
+    cube_faces = {
+    'U': layout[0:3*9],  # Up
+    'R': layout[3*9:3*18],  # Right
+    'F': layout[3*18:3*27],  # Front
+    'D': layout[3*27:3*36],   # Down
+    'L': layout[3*36:3*45], # Left
+    'B': layout[3*45:3*54]  # Back
+}
+    # print("Converted layout:", cube_faces)
+    return cube_faces
+
+def cube_layout(layout_str):
+    cube_str=cube_stickers(layout_str)
+    # print(cube_str['D'])
+
+    str_output = '\n'
+    side_size = 9
+    num_layers = 3
+
+    for j in range (0, num_layers):
+        for i in range(0, side_size):
+            str_output += ' '
+        for i in range(0, side_size, 9):
+            str_output += cube_str['U'][side_size*j:side_size*j+side_size] + '\n'
+
+
+    for j in range (0, num_layers):
+        for i in range(0, side_size, 9*4):
+            str_output += cube_str['L'][side_size*j:side_size*j+side_size] + cube_str['F'][side_size*j:side_size*j+side_size] + cube_str['R'][side_size*j:side_size*j+side_size] + cube_str['B'][side_size*j:side_size*j+side_size] + '\n'
+
+    for j in range (0, num_layers):
+        for i in range(0, side_size):
+            str_output += ' '
+        for i in range(0, side_size, 9):
+            str_output += cube_str['D'][side_size*j:side_size*j+side_size] + '\n'
+
+    return str_output
 
 faces_done = []
 cube_map = {}
@@ -235,3 +285,8 @@ pattern = '|'.join(color_map.keys())
 output_string = re.sub(pattern, lambda m: color_map[m.group(0)], string_cube)
 
 print("Cube string:", output_string)
+
+print("Cube layout:")
+print(cube_layout(output_string))
+
+
