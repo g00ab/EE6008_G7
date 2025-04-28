@@ -175,7 +175,7 @@ face_map = {}
 max_faces = 6
 face_idx = 0
 
-colour_order = ['White', 'Green', 'Yellow', 'Red', 'Blue', 'Orange']
+colour_order = ['white', 'green', 'yellow', 'red', 'blue', 'orange']
 
 while face_idx < max_faces:
     face_map = {}
