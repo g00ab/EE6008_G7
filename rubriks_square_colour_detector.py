@@ -10,6 +10,7 @@ sensor.skip_frames(time=2000)
 
 # --- LAB Color Classification Function ---
 def classify_color(stats):
+    #This will take the statistical mean and classify the colous based on the threshold values
     l = stats.l_mean()
     a = stats.a_mean()
     b = stats.b_mean()
@@ -101,29 +102,24 @@ def fomo_post_process(model, inputs, outputs):
 def assign_positions(centers):
     sorted_y = sorted(centers, key=lambda p: p[1])
     rows = [sorted(sorted_y[i*3:(i+1)*3], key=lambda p: p[0]) for i in range(3)]
-    pos_map = {}
+    position_map = {}
     idx = 0
     for row in rows:
         for pt in row:
-            pos_map[position_names[idx]] = pt
+            position_map[position_names[idx]] = pt
             idx += 1
-    return pos_map
+    return position_map
 
-def print_face_3x3(pos_map):
-    print("\n Rubik's Cube Face (Detected Colors):")
-    print("┌────────┬────────┬────────┐")
-    print("│ {:^6} │ {:^6} │ {:^6} │".format(
-        pos_map["top_left_corner"], pos_map["middle_top"], pos_map["top_right_corner"]))
-    print("├────────┼────────┼────────┤")
-    print("│ {:^6} │ {:^6} │ {:^6} │".format(
-        pos_map["middle_left"], pos_map["center"], pos_map["middle_right"]))
-    print("├────────┼────────┼────────┤")
-    print("│ {:^6} │ {:^6} │ {:^6} │".format(
-        pos_map["bottom_left_corner"], pos_map["middle_bottom"], pos_map["bottom_right_corner"]))
-    print("└────────┴────────┴────────┘")
-    print("🔍 Per Position:")
+def cube_output(position_map):
+    print("---------------------------")
+    print("| {:^6} | {:^6} | {:^6} |".format(position_map["top_left_corner"], position_map["middle_top"], position_map["top_right_corner"]))
+    print("---------------------------")
+    print("| {:^6} | {:^6} | {:^6} |".format(position_map["middle_left"], position_map["center"], position_map["middle_right"]))
+    print("---------------------------")
+    print("| {:^6} | {:^6} | {:^6} |".format(position_map["bottom_left_corner"], position_map["middle_bottom"], position_map["bottom_right_corner"]))
+    print("---------------------------")
     for k in position_names:
-        print(f"{k:>18}: {pos_map[k]}")
+        print(f"{k:>18}: {position_map[k]}")
 
 def cube_stickers(layout_str):
     # Convert the string to a list of colors using the color map
@@ -142,8 +138,6 @@ def cube_stickers(layout_str):
 
 def cube_layout(layout_str):
     cube_str=cube_stickers(layout_str)
-    # print(cube_str['D'])
-
     str_output = '\n'
     side_size = 9
     num_layers = 3
@@ -169,85 +163,77 @@ def cube_layout(layout_str):
 
 faces_done = []
 cube_map = {}
-
 face_map = {}
-
-max_faces = 6
-face_idx = 0
+face_id = 0
 
 colour_order = ['white', 'green', 'yellow', 'red', 'blue', 'orange']
 
-while face_idx < max_faces:
-    face_map = {}
+while face_id < 6:
 
-    print("📸 Present side {} of 6 and hold steady...".format(face_idx + 1))
-    time.sleep(2)
+    face_map = {}
+    time.sleep(1)
 
     while len(face_map) < 9:
-        print("Scanning {} face number {}.....Detected {} positions.".format(colour_order[face_idx], face_idx + 1, len(face_map)))
+        print("Scanning {} face number {}.....Detected {} positions.".format(colour_order[face_id], face_id + 1, len(face_map)))
         img = sensor.snapshot()
         all_centers = []
         all_boxes = []
 
-        for class_idx, detection_list in enumerate(net_square.predict([img], callback=fomo_post_process)):
-            if class_idx == 0: continue
+        for class_id, detection_list in enumerate(net_square.predict([img], callback=fomo_post_process)):
+            if class_id == 0: continue
             for x, y, w, h, score in detection_list:
                 cx = int(x + w / 2)
                 cy = int(y + h / 2)
                 all_centers.append((cx, cy))
-                all_boxes.append((x, y, w, h, class_idx))
-                img.draw_circle((cx, cy, 8), color=colors[class_idx % len(colors)])
+                all_boxes.append((x, y, w, h, class_id))
+                img.draw_circle((cx, cy, 8), color=colors[class_id % len(colors)])
 
         if len(all_centers) < 9:
             continue
 
         try:
-            pos_map = assign_positions(all_centers)
+            position_map = assign_positions(all_centers)
         except:
             print("Could not assign positions. Skipping frame.")
             continue
 
-        for label, (cx, cy) in pos_map.items():
+        for label, (cx, cy) in position_map.items():
             if label in face_map:
                 continue
 
             for (x, y, w, h, class_id) in all_boxes:
                 if abs((x + w // 2) - cx) < 5 and abs((y + h // 2) - cy) < 5:
                     stats = img.get_statistics(roi=(x, y, w, h))
-                    pred_label = classify_color(stats)
+                    predicted_label = classify_color(stats)
 
                     if label == "center":
-                        pred_label = colour_order[face_idx]
+                        predicted_label = colour_order[face_id]
   
-                    if pred_label == "?" or pred_label == "":
+                    if predicted_label == "?" or predicted_label == "":
                         print("LAB Failed, for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
-                        print("XXXX Skipping {}, uncertain color.".format(label))
+                        print("XXXXXXX Skipping {}, uncertain color.".format(label))
                         continue
 
                     print("LAB: ",stats.l_mean(), stats.a_mean(), stats.b_mean())
-                    face_map[label] = pred_label
-                    img.draw_string(cx, cy, "{}:{}".format(label, pred_label), color=(255, 255, 255), scale=1)
-                    print("✅ Updated {} as {}".format(label, pred_label))
+                    face_map[label] = predicted_label
+                    img.draw_string(cx, cy, "{}:{}".format(label, predicted_label), color=(255, 255, 255), scale=1)
+                    print(" ////////////////// Successfully updated {} as {}".format(label, predicted_label))
                     break
 
     # Save the face based on center
     center_color = face_map["center"]
     if center_color in faces_done:
-        print("⚠️ Face with center color '{}' already saved. Try a different one.".format(center_color))
+        print("!!!!!!Face with center color '{}' already saved.".format(center_color))
     else:
         faces_done.append(center_color)
         cube_map[center_color] = face_map.copy()
-        filename = "side_{}.jpg".format(face_idx + 1)
+        filename = "side_{}.jpg".format(face_id + 1)
         img.save(filename)
-        print("📸 Saved {} with center color '{}'".format(filename, center_color))
-        print_face_3x3(face_map)
-        face_idx += 1
+        cube_output(face_map)
+        face_id += 1
         time.sleep(2)
 
 # Final Step: Reorder cube and build string
-print("✅ All 6 sides scanned.")
-time.sleep(1)
-
 new_order = ['white', 'red', 'green', 'yellow', 'orange', 'blue']
 reordered_cube_map = OrderedDict()
 for color in new_order:
