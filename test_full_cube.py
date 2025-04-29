@@ -16,9 +16,9 @@ def classify_color(stats):
 
     if l > 94 : # and abs(a) < 15 and abs(b) < 15:
         return "white"
-    elif a > 38 and b > 30:
+    elif a >= 30 and b > 30:
         return "red"
-    elif 0 < a <= 38 and 30 < b <= 70:
+    elif 0 < a <= 29 and 30 < b <= 70:
         return "orange"
     elif -28 < a < 0 and b > 40:
         return "yellow"
@@ -137,7 +137,7 @@ def cube_stickers(layout_str):
     'L': layout[3*36:3*45], # Left
     'B': layout[3*45:3*54]  # Back
 }
-    print("Converted layout:", cube_faces)
+    # print("Converted layout:", cube_faces)
     return cube_faces
 
 def cube_layout(layout_str):
@@ -175,6 +175,8 @@ face_map = {}
 max_faces = 6
 face_idx = 0
 
+colour_order = ['white', 'green', 'yellow', 'red', 'blue', 'orange']
+
 while face_idx < max_faces:
     face_map = {}
 
@@ -182,7 +184,7 @@ while face_idx < max_faces:
     time.sleep(2)
 
     while len(face_map) < 9:
-        print("📸 Scanning face {}… Detected {} positions.".format(face_idx + 1, len(face_map)))
+        print("Scanning {} face number {}.....Detected {} positions.".format(colour_order[face_idx], face_idx + 1, len(face_map)))
         img = sensor.snapshot()
         all_centers = []
         all_boxes = []
@@ -215,13 +217,8 @@ while face_idx < max_faces:
                     pred_label = classify_color(stats)
 
                     if label == "center":
-                        if face_idx == 0:
-                            pred_label = "white"
-                            center_color = pred_label
-                            face_map[label] = pred_label
-                        else:
-                            center_color = pred_label
-
+                        pred_label = colour_order[face_idx]
+  
                     if pred_label == "?" or pred_label == "":
                         print("LAB Failed, for LAB:",stats.l_mean(), stats.a_mean(), stats.b_mean())
                         print("XXXX Skipping {}, uncertain color.".format(label))
