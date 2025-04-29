@@ -48,22 +48,94 @@ def string_correction (string_output, number_of_side, number_of_square,change):
     string_output[char_to_change] = change
     return string_output
 
+def parse_kociemba_solution(solution_string):
+    moves = solution_string.split()
+    parsed_moves = []
+    
+    for i, move in enumerate(moves, 1):
+        face = move[0]  # First character is the face
+        
+        # Determine direction and shift count
+        if len(move) > 1:
+            if move[1] == '2':
+                direction = "clockwise"
+                angle = "(180°)"
+                shifts = "(#2 Two Shifts)"
+                modifier = "2"
+            elif move[1] == "'":
+                direction = "counter-clockwise"
+                angle = "(-90°)"
+                shifts = "(#1 One Shift)"
+                modifier = "'"
+        else:
+            direction = "clockwise"
+            angle = "(90°)"
+            shifts = "(#1 One Shift)"
+            modifier = ""
+        
+        # Map face letter to full name
+        face_names = {
+            'U': 'Up/Top',
+            'D': 'Down/Bottom',
+            'L': 'Left',
+            'R': 'Right',
+            'F': 'Front',
+            'B': 'Back'
+        }
+        
+        face_name = face_names[face]
+        parsed_moves.append({
+            'number': i,
+            'face_name': face_name,
+            'face_letter': face,
+            'modifier': modifier,
+            'direction': f"{direction} {angle}",
+            'shifts': shifts
+        })
+    
+    return parsed_moves
+
 def solving_cube(layout):
     try:
         solution = kociemba.solve(layout)
-        print("Solution:", solution)
+        # print("Solution:", solution)
+        try:
+            parsed_moves = parse_kociemba_solution(solution)
+            
+            # Print formatted solution
+            print("\n🧩 Formatted Solution Steps:")
+            print("{:<12} {:<4} {:<6} {:<8} {:<20}".format(
+                "Face", "Step", "Move", "Modifier", "Direction"))
+            print("-" * 60)
+            for move in parsed_moves:
+                print("{:<12} {:<4} {:<6} {:<8} {:<20}".format(
+                    move['face_name'],
+                    move['number'],
+                    move['face_letter'],
+                    move['modifier'],
+                    move['direction'] + move['shifts']
+                ))
+            
+            # Also print the solution in standard notation
+            print("\n📝 Solution in standard notation:")
+            print(" ".join([f"{move['face_letter']}{move['modifier']}" for move in parsed_moves]))
+        except Exception as e:
+            print("\n❌ Error calculating solution:", e)
     except Exception as e:
         print("Error:", e)
 
 def main ():
     # Prompt the user for the cube string (assuming a solved cube for simplicity)
-    string_output = prompt_user_string()
-    string_output = list(string_output)  # Convert string to list for mutability
+    original_string_output = prompt_user_string()
+    string_output = list(original_string_output)  # Convert string to list for mutability
     
     # Prompt the user for the number of errors
     errors = prompt_user_errors()
     
-    
+    if errors ==0 :
+        print("No errors to correct.")
+        solving_cube(original_string_output)
+        return
     # Loop through the number of errors and prompt the user for each one
     for i in range(errors):
         print(f"\nError number {i+1}")
