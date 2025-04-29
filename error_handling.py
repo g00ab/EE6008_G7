@@ -13,7 +13,7 @@ def prompt_user_errors():
     return errors
 
 def prompt_user_cube():
-    side_number = int(input("On which side ? \n"))
+    side_number = int(input("On which side ? (White-Red-Green-Yellow-Orange-Blue) \n"))
     if side_number < 1 or side_number > 6:
         print("Please enter a valid side number (1-6)")
         return prompt_user_cube()
